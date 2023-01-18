@@ -2,19 +2,29 @@ from ftplib import FTP
 from pathlib import Path
 import os
 hostname, username, password = "127.0.0.1", "admin", "adminpass"
-# ftp_client = FTP(hostname, username, password)
-# ftp_client = FTP(host = hostname, user = username, passwd = password, acct = '', timeout = None)
 ftp = FTP()
 ftp.connect('127.0.0.1', 3000)
-ftp.login(username, password)
 count=0
 count2=0
 result=0
-def makefolder(name): 
+flag=0
+def makefolder(name,flag):
     inPath = '/Input/'+name
     outPath= '/Output/'+name
-    ftp.mkd(inPath) 
-    ftp.mkd(outPath)
+    try:
+        ftp.mkd(inPath)
+        flag=0
+    except Exception as e:
+        flag=1
+        print(e)
+
+    try:
+        ftp.mkd(outPath)
+        flag=0
+    except Exception as e:
+        flag=1 
+        print(e) 
+    return flag      
 
 def sendingmsg(userinput):
     ## all parameters
@@ -76,7 +86,7 @@ def processData(operation):
     ftp.cwd("/Output/"+fromuser)
     outputfilename=name+str(count2)+".txt"
     count2=count2+1
-    message=operation+" of "+oprd1+" and "+oprd2+" = "+str(result)+"\n"+"******* received from "+name
+    message="From "+name+": "+operation+" of "+oprd1+" and "+oprd2+" = "+str(result)
     with open(outputfilename, "w") as f:
         f.write(message)
     with open(outputfilename, "rb") as file:
@@ -134,23 +144,29 @@ def performFetch():
                 with open(outputfile, "r") as f:
                     msgs = f.readlines()
                     print(msgs[0])
-                    print(msgs[1])
                     os.remove(outputfile)   
     ftp.cwd("/")                                     
 
-
-
-
 if __name__=="__main__":
     global name
+    flag=0
     name=input("Enter Username:- ")
-    makefolder(name)
+    passwd=input("Enter Password:- ")
+    ftp.login(name, passwd)
+    flag=makefolder(name,flag)
+
+    while(flag):
+        name=input("Again enter Username:- ")
+        passwd=input("Again enter Password:- ")
+        ftp.login(name, passwd)
+        flag=makefolder(name,flag)
+
     while(True):
         print()
-        userinput=input("Enter operation:-")
-        if(userinput=="fetch output"):
+        userinput=input("Enter operation:- ")
+        if(userinput=="fetch"):
             performFetch()
-        elif(userinput=="pending operation"):
+        elif(userinput=="process"):
             performPendingOperation()
         elif(userinput=="quit"):
             ftp.cwd("/")
