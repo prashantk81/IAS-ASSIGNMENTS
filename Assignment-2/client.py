@@ -55,11 +55,12 @@ def sendingmsg(userinput):
                 ftp.storbinary(f"STOR {file_name}", file)
             except Exception as e:
                 print(e)
+        os.remove(file_name)         
     else:
         ## dir not exists
         print("there is no such active user...")  
-    ftp.cwd("/")
-    os.remove(file_name) 
+    ftp.cwd("/")    
+    
 
 def processData(operation):
     opers=operation.split(":")
