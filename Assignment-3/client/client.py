@@ -1,12 +1,14 @@
+from signal import signal, SIGPIPE, SIG_DFL
 from ftplib import FTP
 from pathlib import Path
 import os
 import time
-hostname, username, password = "127.0.0.1", "admin", "adminpass"
+hostname, username, password = "127.0.0.1", "client", "adminpass"
+signal(SIGPIPE, SIG_DFL)
 if __name__ == "__main__":
     ftp = FTP()
     ftp.connect('127.0.0.1', 3000)
-    ftp.login("admin", "adminpass")
+    ftp.login("client", "adminpass")
     clientResponse = "/data/response"
     clientRequest = "/data/request"
     mainserverpath = "/data"
@@ -40,52 +42,57 @@ if __name__ == "__main__":
                     print(e)
             fileptr = open(mainserverfilename, "r")
             slavedetails = fileptr.readlines()
-            message = ""
-            i = 0
-            while i < len(slavedetails)-1:
-                temp = slavedetails[i][0:len(slavedetails[i])-1]
-                details = temp.split(":")
-                message = details[0]+"-> "
-                idx = 1
-                while (idx < len(details)):
-                    message += details[idx]+", "
-                    idx += 1
-                message = message[0:len(message)-2]
-                print(message)
-                i += 1
-            temp = slavedetails[len(slavedetails)-1] .split(":")
-            lastmessage = ""
-            lastmessage = temp[0]+"-> "
-            idx = 1
-            while (idx < len(temp)):
-                lastmessage += temp[idx]+", "
-                idx += 1
-            lastmessage = lastmessage[0:len(lastmessage)-2]
-            print(lastmessage)
             fileptr.close()
+            if (len(slavedetails) > 0):
+                message = ""
+                i = 0
+                while i < len(slavedetails)-1:
+                    temp = slavedetails[i][0:len(slavedetails[i])-1]
+                    details = temp.split(":")
+                    message = details[0]+"-> "
+                    idx = 1
+                    while (idx < len(details)):
+                        message += details[idx]+", "
+                        idx += 1
+                    message = message[0:len(message)-2]
+                    print(message)
+                    i += 1
+                temp = slavedetails[len(slavedetails)-1] .split(":")
+                lastmessage = ""
+                lastmessage = temp[0]+"-> "
+                idx = 1
+                while (idx < len(temp)):
+                    lastmessage += temp[idx]+", "
+                    idx += 1
+                lastmessage = lastmessage[0:len(lastmessage)-2]
+                print(lastmessage)
             os.remove(mainserverfilename)
         else:
             messagecontent = command.split(":")
             serverName = messagecontent[0]
             message = messagecontent[1]+":"
             message += messagecontent[2]+":"+messagecontent[3]
-            clientFileName = userName+str(count)+".txt"
+            clientFileName = userName+"@"+str(count)+".txt"
             count += 1
             # create file locally
             file_object = open(clientFileName, "w")
             file_object.write(message)
             file_object.close()
             # upload to corresponding server
-            ftp.cwd(clientRequest+"/"+serverName)
+            ftp.cwd(clientRequest)
+            ftp.cwd(serverName)
             with open(clientFileName, "rb") as file:
                 try:
                     ftp.storbinary(f"STOR {clientFileName}", file)
                 except Exception as e:
                     print(e)
-            os.remove(clientFileName)
+                else:
+                    time.sleep(2)
+                    os.remove(clientFileName)
+            time.sleep(2)
             # after uploading check output in data/response folder
-            time.sleep(5)
-            ftp.cwd(clientResponse+"/"+userName)
+            ftp.cwd(clientResponse)
+            ftp.cwd(userName)
             allfiles = ftp.nlst()
             for fp in allfiles:
                 path = os.path.join(os.getcwd(), userName, fp)
@@ -94,11 +101,16 @@ if __name__ == "__main__":
                         ftp.retrbinary(f"RETR {fp}", file.write)
                     except Exception as e:
                         print(e)
+                        # else:
+                        #     ftp.delete(fp)
+                with open(path, "r+") as fileptr:
+                    try:
+                        content = fileptr.readlines()
+                        print(content[0])
+                    except Exception as e:
+                        print(e)
                     else:
+                        time.sleep(2)
                         ftp.delete(fp)
-                fileptr = open(path, "r")
-                content = fileptr.readlines()
-                print(content[0])
-                fileptr.close()
-                os.remove(path)
+            os.remove(path)
     ftp.quit()

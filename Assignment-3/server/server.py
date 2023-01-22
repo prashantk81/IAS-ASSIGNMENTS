@@ -5,11 +5,13 @@ import os
 import shutil
 from ftplib import FTP
 from pathlib import Path
-hostname, username, password = "127.0.0.1", "admin", "adminpass"
+from signal import signal, SIGPIPE, SIG_DFL
+signal(SIGPIPE, SIG_DFL)
+hostname, username, password = "127.0.0.1", "server", "adminpass"
 if __name__ == "__main__":
     ftp = FTP()
     ftp.connect('127.0.0.1', 3000)
-    ftp.login("admin", "adminpass")
+    ftp.login("server", "adminpass")
     ServerPath = "/data"
     slavePath = "/data/request"
     slavePathresponse = "/data/response"
@@ -32,7 +34,6 @@ if __name__ == "__main__":
                         ftp.storbinary(f"STOR {masterServerFileName}", file)
                     except Exception as e:
                         print(e)
-                ftp.cwd("/")
                 masterServerStatus = 1
                 masterServerName = args[2]
                 print("Master Server is running now...")
@@ -52,12 +53,12 @@ if __name__ == "__main__":
                                 allFunction = ""
                                 idx = 2
                                 while idx < len(serverlist):
-                                    allFunction = allFunction + \
-                                        serverlist[idx]+" "
+                                    allFunction += serverlist[idx]+" "
                                     idx = idx + 1
                                 # create sub server
-                                command = ['python3', 'server.py']
+                                command = ['nohup', 'python3.9', 'server.py']
                                 command += serverlist
+                                command.append('&')
                                 proc = ""
                                 try:
                                     proc = subprocess.Popen(command)
@@ -70,12 +71,17 @@ if __name__ == "__main__":
                                     idx = 2
                                     operation = ""
                                     while idx < len(serverlist):
-                                        operation = operation + \
-                                            ":"+serverlist[idx]
+                                        operation += ":"+serverlist[idx]
                                         idx = idx + 1
                                     slaveServerEntry = slaveServerName+operation+"\n"
                                     with open(masterServerFileName, "a") as f:
                                         f.write(slaveServerEntry)
+                                    slaveEntry = {
+                                        "name": slaveServerName,
+                                        "pid": pid,
+                                        "process": proc,
+                                    }
+                                    allserverstatus.append(slaveEntry)
                                     # upload to ftp server
                                     ftp.cwd(ServerPath)
                                     with open(masterServerFileName, "rb") as file:
@@ -84,29 +90,23 @@ if __name__ == "__main__":
                                                 f"STOR {masterServerFileName}", file)
                                         except Exception as e:
                                             print(e)
-                                    # ftp.cwd("/")
-                                    slaveEntry = {
-                                        "name": slaveServerName,
-                                        "pid": pid,
-                                        "process": proc,
-                                    }
-                                    allserverstatus.append(slaveEntry)
                     elif serverlist[0] == "quit":
+                        flag = 0
+                        ftp.cwd(slavePath)
                         for p in allserverstatus:
                             proc = p['process']
                             proc.kill()
-                            print("process with pid " +
+                            print(" Slave process with pid " +
                                   str(p["pid"])+" is killed")
-                            ftp.cwd(slavePath)
                             ftp.rmd(p["name"])
-                            # ftp.cwd("/")
                             shutil.rmtree(p["name"])
-                        ftp.cwd(ServerPath)
-                        ftp.delete(masterServerFileName)
-                        # ftp.cwd("/")
+                            flag = 1
+                        if flag:
+                            ftp.cwd(ServerPath)
+                            ftp.delete(masterServerFileName)
                         os.remove(masterServerFileName)
+                        ftp.quit()
                         break
-
                 else:
                     print("Wrong Command")
     elif args[1] == "run_slave":
@@ -124,55 +124,76 @@ if __name__ == "__main__":
         localresponse = os.path.join(
             path, "response")
         os.mkdir(localresponse)
-        ftp.cwd(slaveServerName)
+
         while (True):
-            alldir = ftp.nlst()
+            ftp.cwd(slavePath+"/"+slaveServerName)
+            try:
+                alldir = ftp.nlst()
+            except Exception as e:
+                print(e)
             # download all files from ftp
-            for fp in alldir:
-                localPath = os.path.join(localrequest, fp)
-                with open(localPath, "wb") as file:
-                    try:
-                        ftp.retrbinary(f"RETR {fp}", file.write)
-                    except Exception as e:
-                        print(e)
-                    else:
-                        ftp.delete(fp)
-            allfiles = os.listdir(localrequest)
+            else:
+                path = os.path.join(os.getcwd(), slaveServerName, "request")
+                for fp in alldir:
+                    localPath = os.path.join(path, fp)
+                    with open(localPath, "wb") as file:
+                        try:
+                            ftp.retrbinary(f"RETR {fp}", file.write)
+                        except Exception as e:
+                            print(e)
+                        else:
+                            ftp.delete(fp)
+
             # process all downloaded files
-            for fileName in allfiles:
-                # client file name= client+count+.txt
-                clientNamewithoutex = fileName.split(".")
-                clientName = clientNamewithoutex[0]
-                path = os.path.join(localrequest, fileName)
-                fileptr = open(path, "r")
-                operation = fileptr.readlines()
-                expression = operation[0].split(":")
-                operation = expression[0]
-                operand1 = expression[1]
-                operand2 = expression[2]
-                result = 0
-                if (operation == "add"):
-                    result = int(operand1)+int(operand2)
-                elif (operation == "sub"):
-                    result = int(operand1)-int(operand2)
-                elif (operation == "mul"):
-                    result = int(operand1)*int(operand2)
-                else:
-                    result = "Invalid Opeartion"
-                modifiedFileName = slaveServerName+"."+fileName
-                resPath = os.path.join(localresponse, modifiedFileName)
-                file_object = open(resPath, "w")
-                file_object.write(str(result))
-                file_object.close()
-                fileptr.close()
-                deletefilePath = os.path.join(localrequest, fileName)
-                os.remove(deletefilePath)
-                ftp.cwd(slavePathresponse+"/"+clientName)
-                with open(resPath, "rb") as file:
-                    try:
-                        ftp.storbinary(f"STOR {resPath}", file)
-                    except Exception as e:
-                        print(e)
-                os.remove(resPath)
+                for fileName in alldir:
+                    # client file name= client+count+.txt
+                    clientNamewithoutex = fileName.split(".")
+                    clientNamewithspecial = clientNamewithoutex[0].split("@")
+                    clientName = clientNamewithspecial[0]
+                    path1 = os.path.join(os.getcwd(), slaveServerName)
+                    localrequest = os.path.join(
+                        path1, "request")
+                    path = os.path.join(localrequest, fileName)
+                    fileptr = open(path, "r")
+                    operation = fileptr.readlines()
+                    expression = operation[0].split(":")
+                    fileptr.close()
+                    # os.remove(deletefilePath)
+                    operation = expression[0]
+                    operand1 = expression[1]
+                    operand2 = expression[2]
+                    result = 0
+                    if (operation == "add"):
+                        result = int(operand1)+int(operand2)
+                    elif (operation == "sub"):
+                        result = int(operand1)-int(operand2)
+                    elif (operation == "mul"):
+                        result = int(operand1)*int(operand2)
+                    else:
+                        result = "Invalid Opeartion"
+                    modifiedFileName = fileName
+                    localresponse = os.path.join(
+                        os.getcwd(), slaveServerName, "response")
+                    # os.mkdir(localresponse)
+                    resPath = os.path.join(localresponse, modifiedFileName)
+                    file_object = open(resPath, "w")
+                    file_object.write(str(result))
+                    file_object.close()
+                    deletefilePath = os.path.join(
+                        os.getcwd(), slaveServerName, "request", fileName)
+                    os.remove(deletefilePath)
+                for filename in alldir:
+                    localresponse = os.path.join(
+                        os.getcwd(), slaveServerName, "response")
+                    resPath = os.path.join(localresponse, fileName)
+                    ftp.cwd(slavePathresponse)
+                    ftp.cwd(clientName)
+                    with open(resPath, "rb") as file:
+                        try:
+                            ftp.storbinary(f"STOR {filename}", file)
+                        except Exception as e:
+                            print(e)
+                        else:
+                            os.remove(resPath)
                 # break
-    ftp.quit()
+    # ftp.quit()
