@@ -7,12 +7,11 @@ hostname, username, password = "127.0.0.1", "client", "adminpass"
 signal(SIGPIPE, SIG_DFL)
 if __name__ == "__main__":
     ftp = FTP()
-    ftp.connect('127.0.0.1', 3000)
-    ftp.login("client", "adminpass")
+    ftp.connect(hostname, 3000)
+    ftp.login(username, password)
     clientResponse = "/data/response"
     clientRequest = "/data/request"
     mainserverpath = "/data"
-
     userName = input("Enter Username:- ")
     # create username directory locally and ftpserver
     os.mkdir(userName)
@@ -87,9 +86,9 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(e)
                 else:
-                    time.sleep(2)
+                    time.sleep(1)
                     os.remove(clientFileName)
-            time.sleep(2)
+            time.sleep(1)
             # after uploading check output in data/response folder
             ftp.cwd(clientResponse)
             ftp.cwd(userName)
@@ -101,8 +100,6 @@ if __name__ == "__main__":
                         ftp.retrbinary(f"RETR {fp}", file.write)
                     except Exception as e:
                         print(e)
-                        # else:
-                        #     ftp.delete(fp)
                 with open(path, "r+") as fileptr:
                     try:
                         content = fileptr.readlines()
@@ -110,7 +107,7 @@ if __name__ == "__main__":
                     except Exception as e:
                         print(e)
                     else:
-                        time.sleep(2)
+                        time.sleep(1)
                         ftp.delete(fp)
             os.remove(path)
     ftp.quit()

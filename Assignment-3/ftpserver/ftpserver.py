@@ -11,6 +11,6 @@ handler = FTPHandler
 handler.authorizer = authorizer
 handler.passive_ports = range(60000, 65535)
 server = FTPServer(addr, handler)
-server.max_cons = 10
-server.max_cons_per_ip = 10
+server.max_cons = 20
+server.max_cons_per_ip = 20
 server.serve_forever()

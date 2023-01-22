@@ -10,8 +10,8 @@ signal(SIGPIPE, SIG_DFL)
 hostname, username, password = "127.0.0.1", "server", "adminpass"
 if __name__ == "__main__":
     ftp = FTP()
-    ftp.connect('127.0.0.1', 3000)
-    ftp.login("server", "adminpass")
+    ftp.connect(hostname, 3000)
+    ftp.login(username, password)
     ServerPath = "/data"
     slavePath = "/data/request"
     slavePathresponse = "/data/response"
@@ -65,7 +65,7 @@ if __name__ == "__main__":
                                 except Exception as e:
                                     print(e)
                                 else:
-                                    time.sleep(2)
+                                    time.sleep(1)
                                     pid = proc.pid
                                     # update slave server operation in master server
                                     idx = 2
@@ -90,6 +90,8 @@ if __name__ == "__main__":
                                                 f"STOR {masterServerFileName}", file)
                                         except Exception as e:
                                             print(e)
+                                    print("slave server " +
+                                          slaveServerName+" is running... ")
                     elif serverlist[0] == "quit":
                         flag = 0
                         ftp.cwd(slavePath)
@@ -105,6 +107,7 @@ if __name__ == "__main__":
                             ftp.cwd(ServerPath)
                             ftp.delete(masterServerFileName)
                         os.remove(masterServerFileName)
+                        os.remove("nohup.out")
                         ftp.quit()
                         break
                 else:
@@ -158,7 +161,6 @@ if __name__ == "__main__":
                     operation = fileptr.readlines()
                     expression = operation[0].split(":")
                     fileptr.close()
-                    # os.remove(deletefilePath)
                     operation = expression[0]
                     operand1 = expression[1]
                     operand2 = expression[2]
@@ -174,10 +176,12 @@ if __name__ == "__main__":
                     modifiedFileName = fileName
                     localresponse = os.path.join(
                         os.getcwd(), slaveServerName, "response")
-                    # os.mkdir(localresponse)
                     resPath = os.path.join(localresponse, modifiedFileName)
                     file_object = open(resPath, "w")
-                    file_object.write(str(result))
+                    resultmessage = "From "+slaveServerName+" : "+operation
+                    resultmessage += " of "+operand1
+                    resultmessage += " and "+operand2+" is "+str(result)
+                    file_object.write(resultmessage)
                     file_object.close()
                     deletefilePath = os.path.join(
                         os.getcwd(), slaveServerName, "request", fileName)
@@ -195,5 +199,3 @@ if __name__ == "__main__":
                             print(e)
                         else:
                             os.remove(resPath)
-                # break
-    # ftp.quit()
