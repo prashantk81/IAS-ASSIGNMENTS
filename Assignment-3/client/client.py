@@ -80,18 +80,20 @@ if __name__ == "__main__":
             # upload to corresponding server
             ftp.cwd(clientRequest)
             ftp.cwd(serverName)
+            status = 0
             with open(clientFileName, "rb") as file:
                 try:
                     ftp.storbinary(f"STOR {clientFileName}", file)
                 except Exception as e:
                     print(e)
                 else:
-                    time.sleep(1)
-                    os.remove(clientFileName)
-            time.sleep(1)
+                    status = 1
+            if (status):
+                time.sleep(1)
+                os.remove(clientFileName)
             # after uploading check output in data/response folder
-            ftp.cwd(clientResponse)
-            ftp.cwd(userName)
+            newpath = clientResponse+"/"+userName
+            ftp.cwd(newpath)
             allfiles = ftp.nlst()
             for fp in allfiles:
                 path = os.path.join(os.getcwd(), userName, fp)
@@ -100,6 +102,7 @@ if __name__ == "__main__":
                         ftp.retrbinary(f"RETR {fp}", file.write)
                     except Exception as e:
                         print(e)
+                tmp = 0
                 with open(path, "r+") as fileptr:
                     try:
                         content = fileptr.readlines()
@@ -107,7 +110,9 @@ if __name__ == "__main__":
                     except Exception as e:
                         print(e)
                     else:
-                        time.sleep(1)
-                        ftp.delete(fp)
+                        tmp = 1
+                if (tmp):
+                    time.sleep(1)
+                    ftp.delete(fp)
             os.remove(path)
     ftp.quit()

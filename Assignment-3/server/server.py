@@ -139,13 +139,16 @@ if __name__ == "__main__":
                 path = os.path.join(os.getcwd(), slaveServerName, "request")
                 for fp in alldir:
                     localPath = os.path.join(path, fp)
+                    status = 0
                     with open(localPath, "wb") as file:
                         try:
                             ftp.retrbinary(f"RETR {fp}", file.write)
                         except Exception as e:
                             print(e)
                         else:
-                            ftp.delete(fp)
+                            status = 1
+                    if (status):
+                        ftp.delete(fp)
 
             # process all downloaded files
                 for fileName in alldir:
@@ -174,8 +177,9 @@ if __name__ == "__main__":
                     else:
                         result = "Invalid Opeartion"
                     modifiedFileName = fileName
+                    temp = os.path.join(os.getcwd(), slaveServerName)
                     localresponse = os.path.join(
-                        os.getcwd(), slaveServerName, "response")
+                        temp, "response")
                     resPath = os.path.join(localresponse, modifiedFileName)
                     file_object = open(resPath, "w")
                     resultmessage = "From "+slaveServerName+" : "+operation
