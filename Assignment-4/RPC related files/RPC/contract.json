@@ -1,0 +1,34 @@
+{
+    "remote_procedures":[
+        {
+            "procedure_name": "foo",
+            "parameters": [
+                {
+                    "parameter_name":"par_1",
+                    "data_type":"int"
+                }            
+            ],
+            "return_type": "str"
+        },
+        {
+            "procedure_name": "bar",
+            "parameters": [
+                {
+                    "parameter_name":"par_1",
+                    "data_type":"int"
+                },
+                {
+                    "parameter_name":"par_2",
+                    "data_type":"str"
+                }              
+            ],
+            "return_type": "int"
+        },
+        {
+            "procedure_name": "random_rating",
+            "parameters": [            
+            ],
+            "return_type": "int"
+        }
+    ]
+}
