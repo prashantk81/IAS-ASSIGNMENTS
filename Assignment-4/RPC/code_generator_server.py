@@ -3,50 +3,84 @@ fileName = "rpc_server.py"
 
 
 def generateRPCFile(jsonFile):
-    fileContent = '''from inspect import signature
-from os import path
-import inspect
-import server
+    fileContent = '''from os import path
 import socket
 import json
+import server_procedures
+HOSTNAME = '127.0.0.1'
+PORTNUMBER = 1234
+jsonFile = '%s'
 
-
-
-def printError(msg):
-    print(msg)
-    exit()
 
 class functionDetails:
-    def __init__(self,name,args):
-        self.name = name
-        self.args = args
-        #self.response = response
+    def __init__(self, fxnname, argument):
+        self.name = fxnname
+        self.args = argument
 
-def functionExists(f: functionDetails):
-    function_names = [func for func in dir(server) if not func.startswith('__')]
-    if f.name in function_names:
+
+def isFunctionDefined(fxnptr: functionDetails):
+    function_names = []
+    for idx in dir(server_procedures):
+        if (not idx.startswith('__')):
+            function_names.append(idx)
+    if fxnptr.name in function_names:
         return True
     return False
 
-class RPC:
-    functionsRegistered = []
-    def registerFunctions(self,filePath):
-        if not (path.exists(filePath)):
-            printError(filePath+" does not exists")
-        file1 = open(filePath,'r')
-        Lines = file1.readlines()
-        for  f in Lines:
-            tokens = f.split()
-            functionName = tokens[0]
-            args = []
-            for x in range(1,len(tokens)):
-                args.append(tokens[x])
-            func = functionDetails(functionName,args)
-            if functionExists(func):
-                self.functionsRegistered.append(func)
+
+def storeDetails(jsonData):
+    functionNameAndType = []
+    for key in jsonData['remote_procedures']:
+        functionName = key['procedure_name']
+        argumentType = []
+        i = 0
+        while i < len(key['parameters']):
+            if len(key['parameters'][i]) == 0:
+                continue
             else:
-                printError(functionName + " does not exists in module")
-    
+                argumentType.append(key['parameters'][i]['data_type'])
+            i = i+1
+        allfunctiondetail = functionDetails(functionName, argumentType)
+        if isFunctionDefined(allfunctiondetail) == True:
+            functionNameAndType.append(allfunctiondetail)
+        else:
+            print("{} is not defined.".format(functionName))
+            exit()
+    return functionNameAndType
+
+
+def readJsonFile():
+    # read json file ans store details
+    if not (path.exists(jsonFile)):
+        print("{} file does not exists".format(jsonFile))
+        exit()
+    else:
+        fp = open(jsonFile)
+        jsonData = json.load(fp)
+        return storeDetails(jsonData)
+
+
+def serverConnetionAndListener(HOSTNAME, PORTNUMBER):
+    # connection establish and listen
+    sp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sp.bind((HOSTNAME, PORTNUMBER))
+    sp.listen()
+    return sp
+
+
+def acceptConnectionRequest(sp):
+    return sp.accept()
+
+
+def calculation(dataReceivedFromClient):
+    dataReceivedFromClient = dataReceivedFromClient.decode(
+        'utf-8')
+    allfxn = json.loads(dataReceivedFromClient)
+    fxncallcalculation = getattr(
+        server_procedures, allfxn['name'])
+    return fxncallcalculation(*allfxn['args'])
+
+
 def jsonify(functions):
     ans = ""
     for f in functions:
@@ -54,38 +88,29 @@ def jsonify(functions):
     ans = ans[:-1]
     return ans
 
-def main():
-    rpc = RPC()
-    jsonFile='%s'
-    rpc.registerFunctions("functionNames.txt")
-    s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-    PORT = 12346
-    s.bind(('127.0.0.1',PORT))
-    s.listen()
-    while True:
-        conn, addr = s.accept()
-
-        with conn:
-            print('Connected by', addr)
-            while True:
-                data = conn.recv(1024)
-                print("recvd form client",data)
-                if not data:
-                    break
-                elif data == b'getFunctions':
-                    funcNamesJson = jsonify(rpc.functionsRegistered)
-                    conn.sendall(str.encode(funcNamesJson))
-                else:
-                    data = data.decode('utf-8')
-                    funcDetails = json.loads(data)
-                    print(funcDetails)
-                    methodToCall = getattr(server,funcDetails['name'])
-                    ans = methodToCall(*funcDetails['args'])
-                    conn.sendall(str.encode(str(ans)))
-    
 
 if __name__ == "__main__":
-    main()''' % jsonFile
+    # Read json file ans function details in list of dict
+    allfxnNameType = readJsonFile()
+    # listening server for client
+    sp = serverConnetionAndListener(HOSTNAME, PORTNUMBER)
+    print("Server is ready to listen...")
+    flag = True
+    while flag:
+        connection, clientaddress = acceptConnectionRequest(sp)
+        with connection:
+            print("client with address {} is connected to server".format(clientaddress))
+            while flag:
+                dataReceivedFromClient = connection.recv(1024)
+                if not dataReceivedFromClient:
+                    break
+                elif dataReceivedFromClient == b'getFunctions':
+                    funcNamesJson = jsonify(allfxnNameType)
+                    connection.sendall(str.encode(funcNamesJson))
+                else:
+                    finalResult = calculation(dataReceivedFromClient)
+                    connection.sendall(str.encode(str(finalResult)))
+''' % jsonFile
     f = open(fileName, "w")
     f.write(fileContent)
     f.close()
