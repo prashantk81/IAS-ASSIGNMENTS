@@ -8,7 +8,7 @@ import socket
 import json
 import server_procedures
 HOSTNAME = '127.0.0.1'
-PORTNUMBER = 1234
+PORTNUMBER = 1238
 jsonFile = '%s'
 
 
@@ -81,12 +81,17 @@ def calculation(dataReceivedFromClient):
     return fxncallcalculation(*allfxn['args'])
 
 
-def jsonify(functions):
-    ans = ""
-    for f in functions:
-        ans += json.dumps(vars(f)) + '$'
-    ans = ans[:-1]
-    return ans
+def fetchFunDetailsFromJson(jsonData):
+    FxnNameAndTpyes = ""
+    i = 0
+    while i < len(jsonData):
+        FxnNameAndTpyes = FxnNameAndTpyes+json.dumps(vars(jsonData[i]))
+        FxnNameAndTpyes = FxnNameAndTpyes+'#'
+        i = i+1
+    reverseRes = FxnNameAndTpyes[::-1]
+    reverseRes = reverseRes[1:]
+    FxnNameAndTpyes = reverseRes[::-1]
+    return FxnNameAndTpyes
 
 
 if __name__ == "__main__":
@@ -105,11 +110,13 @@ if __name__ == "__main__":
                 if not dataReceivedFromClient:
                     break
                 elif dataReceivedFromClient == b'getFunctions':
-                    funcNamesJson = jsonify(allfxnNameType)
-                    connection.sendall(str.encode(funcNamesJson))
+                    fxnDetailsFromJsonFile = fetchFunDetailsFromJson(
+                        allfxnNameType)
+                    connection.sendall(str.encode(fxnDetailsFromJsonFile))
                 else:
                     finalResult = calculation(dataReceivedFromClient)
                     connection.sendall(str.encode(str(finalResult)))
+
 ''' % jsonFile
     f = open(fileName, "w")
     f.write(fileContent)
